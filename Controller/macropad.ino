@@ -127,7 +127,8 @@ void sendKey(uint8_t modifer, uint8_t keycode)
 }
 
 // parse and return modifiers + keycode
-void executeAction(String action) {
+void executeAction(String action) 
+{
     action.toUpperCase();
     action.trim();
 
@@ -193,4 +194,43 @@ void executeAction(String action) {
     if (keycode > 0 || modifier > 0) {
         sendKey(modifier, keycode);
     }
+}
+
+// flash esp32
+void loadConfig() 
+{
+    prefs.begin("macropad", true);
+    for (int i = 0; i < NB_BUTTONS; i++)
+    {
+        actions[i] = prefs.getString(("btn" + String(i)).c_str(), "");
+    }
+    prefs.end();
+    Serial.println("Config loaded from flash memory");
+}
+
+void saveConfig()
+{
+    prefs.begin("macropad", false);
+    for (int i = 0; i < NB_BUTTONS; i++)
+    {
+        prefs.putString(("btn" + String(i)).c_str(), actions[i]);
+    }
+    prefs.end();
+    Serial.println("Config saved in flash memory");
+}
+
+// UART BLE sendReply()
+void sendReply(String json)
+{
+    if (pTxChar && bleConnected)
+    {
+        pTxChar->setValue(json.c_str());
+        pTxChar->notify();
+    }
+    Serial.println("TX: " + json);
+}
+
+void handleCommand(String payload)
+{
+    // to do
 }
