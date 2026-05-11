@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: . 
+      dockerfile: docker/node/Dockerfile
+    
+    ports:
+      - "5173:5173"
+
+    volumes:
+      - .:/MacroPadApp
+      - /MacroPadApp/node_modules
+    
+    stdin_open: true
+    tty: true
