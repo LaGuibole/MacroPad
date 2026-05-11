@@ -1,7 +1,19 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
+import BleStatus from './components/BleStatus.vue'
 </script>
 
 <template>
-  <HelloWorld />
+  <main>
+    <h1>MacroPad</h1>
+    <BleStatus />
+  </main>
 </template>
+
+<style scoped>
+main {
+  padding: 32px;
+  display: flex;
+  flex-directions: column;
+  gap: 24px;
+}
+</style>

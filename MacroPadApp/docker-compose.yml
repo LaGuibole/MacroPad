@@ -10,6 +10,9 @@ services:
     volumes:
       - .:/MacroPadApp
       - /MacroPadApp/node_modules
+    environment:
+      - VITE_HMR_HOST=localhost
+      - VITE_HMR_PORT=5173
     
     stdin_open: true
     tty: true
