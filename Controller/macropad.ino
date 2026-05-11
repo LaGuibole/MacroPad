@@ -15,8 +15,8 @@ String actions[NB_BUTTONS]; // ig: ctrl z ctrls s etc
 
 // UUIds UART
 #define UART_SERVICE_UUID   "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-#define UART_RX_UUID        "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-#define UART_TX_UUID        "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+#define UART_RX_UUID        "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+#define UART_TX_UUID        "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 // modifiers
 #define MOD_CTRL    0x01
@@ -109,7 +109,7 @@ static const uint8_t hidReportDescriptor[] = {
 
 // send HID button
 // report[0] = modifiers, report[1] = reserved, report[2, ..., 7] = keycodes
-void sendKey(uint8_t modifer, uint8_t keycode)
+void sendKey(uint8_t modifier, uint8_t keycode)
 {
     if (!bleConnected) 
         return;
@@ -197,7 +197,7 @@ void executeAction(String action)
 }
 
 // flash esp32
-void loadConfig() 
+void loadConfig(void) 
 {
     prefs.begin("macropad", true);
     for (int i = 0; i < NB_BUTTONS; i++)
@@ -208,7 +208,7 @@ void loadConfig()
     Serial.println("Config loaded from flash memory");
 }
 
-void saveConfig()
+void saveConfig(void)
 {
     prefs.begin("macropad", false);
     for (int i = 0; i < NB_BUTTONS; i++)
@@ -232,5 +232,142 @@ void sendReply(String json)
 
 void handleCommand(String payload)
 {
-    // to do
+    Serial.println("RX: " + payload);
+    StaticJsonDocument<512> doc;
+    if (deserializeJson(doc, payload))
+    {
+        sendReply("{\"ok\":false,\"error\":\"invalid btn\"}");
+        return;
+    }
+
+    String cmd = doc["cmd"].as<String>();
+
+    if(cmd == "set")
+    {
+        int btn = doc["btn"].as<int>() - 1;
+        if (btn < 0 || btn >= NB_BUTTONS)
+        {
+            sendReply("{\"ok\":false,\"error\":\"invalid btn\"}");
+            return;
+        }
+        actions[btn] = doc["action"].as<String>();
+        sendReply("{\"ok\":true,\"btn\":" + String(btn+1) + "}");
+    }
+
+    else if (cmd == "get")
+    {
+        int btn = doc["btn"].as<int>() - 1;
+        if (btn < 0 || btn >= NB_BUTTONS) 
+        {
+            sendReply("{\"ok\":false,\"error\":\"invalid btn\"}");
+            return;
+        }
+        sendReply("{\"ok\":true,\"btn\":" + String(btn+1) + ",\"action\":\"" + actions[btn] + "\"}");
+    }
+
+    else if (cmd == "getall")
+    {
+        String reply = "{\"ok\":true,\"buttons\":[";
+        for (int i = 0; i < NB_BUTTONS; i++)
+        {
+            reply += "{\"btn\":" + String(i+1) + ",\"action\":\"" + actions[i] + "\"}";
+            if (i < NB_BUTTONS - 1) reply += ",";
+        }
+        reply += "]}";
+        sendReply(reply);
+    }
+
+    else if (cmd == "save")
+    {
+        saveConfig();
+        sendReply("{\"ok\":true,\"saved\":true}");
+    }
+
+    else 
+        sendReply("{\"ok\":false,\"error\":\"unknown cmd\"}");
+}
+
+// BLE callbacks
+class ServerCallbacks : public NimBLEServerCallbacks 
+{
+    void onConnect(NimBLEServer* pSvr) {
+        bleConnected = true;
+        Serial.println("Client connected");
+    }
+    void onDisconnect(NimBLEServer* pSvr) {
+        bleConnected = false;
+        Serial.println("Client disconnected - advertising");
+        NimBLEDevice::startAdvertising(); 
+    }
+};
+
+class RxCallbacks : public NimBLECharacteristicCallbacks {
+    void onWrite(NimBLECharacteristic* pChar) {
+        String val = pChar->getValue().c_str();
+        if (val.length() > 0) 
+            handleCommand(val);
+    }
+};
+
+// setup
+void setup(void)
+{
+    Serial.begin(115200);
+    loadConfig();
+
+    for (int i = 0; i < NB_BUTTONS; i++)
+    {
+        pinMode(PINS[i], INPUT_PULLUP);
+        lastState[i] = HIGH;
+    }
+
+    NimBLEDevice::init("MyMacroPad");
+    NimBLEDevice::setSecurityAuth(false, false, true);
+    pServer = NimBLEDevice::createServer();
+    pServer->setCallbacks(new ServerCallbacks());
+
+    // HID service
+    hid = new NimBLEHIDDevice(pServer);
+    inputReport = hid->getInputReport(1);
+    hid->setManufacturer("LaGuibole");
+    hid->setPnp(0x02, 0x045E, 0x0000, 0x0110);
+    hid->setHidInfo(0x00, 0x01);
+    hid->setReportMap((uint8_t*)hidReportDescriptor, sizeof(hidReportDescriptor));
+    hid->setBatteryLevel(100);
+    hid->startServices();
+
+    // UART config service
+    NimBLEService* pUart = pServer->createService(UART_SERVICE_UUID);
+    pTxChar = pUart->createCharacteristic(UART_TX_UUID, NIMBLE_PROPERTY::NOTIFY);
+    NimBLECharacteristic* pRxChar = pUart->createCharacteristic(
+        UART_RX_UUID,
+        NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
+    );
+    pRxChar->setCallbacks(new RxCallbacks());
+    pUart->start();
+
+    // advertising
+    NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+    adv->setAppearance(HID_KEYBOARD);
+    adv->addServiceUUID(hid->getHidService()->getUUID());
+    adv->start();
+
+    Serial.println("BT MacroPad is ready !");
+}
+
+// routine 
+void loop(void)
+{
+    for (int i = 0; i < NB_BUTTONS; i++)
+    {
+        bool currentState = digitalRead(PINS[i]);
+        if (lastState[i] == HIGH && currentState == LOW)
+        {
+            Serial.println("Button " + String(i + 1) + " -> " + actions[i]);
+            if (bleConnected && actions[i].length() > 0)
+                executeAction(actions[i]);
+        }
+        lastState[i] = currentState;
+    }
+    delay(20);
 }
