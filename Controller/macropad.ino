@@ -67,3 +67,130 @@ String actions[NB_BUTTONS]; // ig: ctrl z ctrls s etc
 #define KEY_TAB     0x2B
 #define KEY_DEL     0x4C
 #define KEY_SPACE   0x2C
+
+// globals for BLE
+NimBLEHIDDevice         *hid;
+NimBLECharacteristic    *inputReport;
+NimBLECharacteristic    *pTxChar = nullptr;
+NimBLEServer            *pServer = nullptr;
+bool bleConnected = false;
+Preferences prefs;
+
+// HID Report descriptor 
+static const uint8_t hidReportDescriptor[] = {
+    0x05, 0x01, // usage page
+    0x09, 0x06, // usage keyboard
+    0xA1, 0x01, // collection
+    0x85, 0x01, // report ID
+    // modifiers
+    0x05, 0x07, // Usage page
+    0x19, 0xE0, // Usage minimum
+    0x29, 0xE7, // useage max
+    0x15, 0x00, // logical min
+    0x25, 0x01, // logical max
+    0x75, 0x01, // report size
+    0x95, 0x08, // report count
+    0x81, 0x02, // input type (data, variable)
+    // reserved byte
+    0x95, 0x01, // report count
+    0x75, 0x08, // report size
+    0x81, 0x02, // input (const)
+    // keycodes
+    0x95, 0x06, // report count
+    0x75, 0x08, // report size
+    0x15, 0x00, // logical min
+    0x26, 0xFF, 0x00, // logical max
+    0x05, 0x07, // usage page
+    0x19, 0x00, // usage min
+    0x29, 0xFF, // usage max
+    0x81, 0x00, // input
+    0xC0 // end collection
+};
+
+// send HID button
+// report[0] = modifiers, report[1] = reserved, report[2, ..., 7] = keycodes
+void sendKey(uint8_t modifer, uint8_t keycode)
+{
+    if (!bleConnected) 
+        return;
+    uint8_t report[8] = {0};
+    report[0] = modifier;
+    report[2] = keycode;
+    inputReport->setValue(report, sizeof(report));
+    inputReport->notify();
+    delay(10);
+    // release :
+    memset(report, 0, sizeof(report));
+    inputReport->setValue(report, sizeof(report));
+    inputReport->notify();
+    delay(10);
+}
+
+// parse and return modifiers + keycode
+void executeAction(String action) {
+    action.toUpperCase();
+    action.trim();
+
+    uint8_t modifier = 0;
+    uint8_t keycode = 0;
+
+    // build : <modifier> '+' <keycode> 
+    int lastPlus = action.lastIndexOf('+');
+    String modifiers = (lastPlus >= 0) ? action.substring(0, lastPlus) : "";
+    String key       = (lastPlus >= 0) ? action.substring(lastPlus + 1) : action;
+
+    // modifiers
+    if (modifiers.indexOf("CTRL") >= 0) modifier |= MOD_CTRL;
+    if (modifiers.indexOf("SHIFT") >= 0) modifier |= MOD_SHIFT;
+    if (modifiers.indexOf("ALT") >= 0) modifier |= MOD_ALT;
+    if (modifiers.indexOf("GUI") >= 0) modifier |= MOD_GUI;
+    if (modifiers.indexOf("WIN") >= 0) modifier |= MOD_GUI;
+
+    // keycodes
+    if      (key == "A") keycode = KEY_A;
+    else if (key == "B") keycode = KEY_B;
+    else if (key == "C") keycode = KEY_C;
+    else if (key == "D") keycode = KEY_D;
+    else if (key == "E") keycode = KEY_E;
+    else if (key == "F") keycode = KEY_F;
+    else if (key == "G") keycode = KEY_G;
+    else if (key == "H") keycode = KEY_H;
+    else if (key == "I") keycode = KEY_I;
+    else if (key == "J") keycode = KEY_J;
+    else if (key == "K") keycode = KEY_K;
+    else if (key == "L") keycode = KEY_L;
+    else if (key == "M") keycode = KEY_M;
+    else if (key == "N") keycode = KEY_N;
+    else if (key == "O") keycode = KEY_O;
+    else if (key == "P") keycode = KEY_P;
+    else if (key == "Q") keycode = KEY_Q;
+    else if (key == "R") keycode = KEY_R;
+    else if (key == "S") keycode = KEY_S;
+    else if (key == "T") keycode = KEY_T;
+    else if (key == "U") keycode = KEY_U;
+    else if (key == "V") keycode = KEY_V;
+    else if (key == "W") keycode = KEY_W;
+    else if (key == "X") keycode = KEY_X;
+    else if (key == "Y") keycode = KEY_Y;
+    else if (key == "Z") keycode = KEY_Z;
+    else if (key == "F1")  keycode = KEY_F1;
+    else if (key == "F2")  keycode = KEY_F2;
+    else if (key == "F3")  keycode = KEY_F3;
+    else if (key == "F4")  keycode = KEY_F4;
+    else if (key == "F5")  keycode = KEY_F5;
+    else if (key == "F6")  keycode = KEY_F6;
+    else if (key == "F7")  keycode = KEY_F7;
+    else if (key == "F8")  keycode = KEY_F8;
+    else if (key == "F9")  keycode = KEY_F9;
+    else if (key == "F10") keycode = KEY_F10;
+    else if (key == "F11") keycode = KEY_F11;
+    else if (key == "F12") keycode = KEY_F12;
+    else if (key == "ESC") keycode = KEY_ESC;
+    else if (key == "TAB") keycode = KEY_TAB;
+    else if (key == "DEL") keycode = KEY_DEL;
+    else if (key == "SPACE") keycode = KEY_SPACE;
+
+    if (keycode > 0 || modifier > 0) {
+        sendKey(modifier, keycode);
+    }
+}
