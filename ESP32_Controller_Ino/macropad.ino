@@ -94,7 +94,7 @@ static const uint8_t hidReportDescriptor[] = {
     // reserved byte
     0x95, 0x01, // report count
     0x75, 0x08, // report size
-    0x81, 0x02, // input (const)
+    0x81, 0x03, // input (const)
     // keycodes
     0x95, 0x06, // report count
     0x75, 0x08, // report size
@@ -350,6 +350,7 @@ void setup(void)
     NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
     adv->setAppearance(HID_KEYBOARD);
     adv->addServiceUUID(hid->getHidService()->getUUID());
+    adv->addServiceUUID(UART_SERVICE_UUID);
     adv->start();
 
     Serial.println("BT MacroPad is ready !");

@@ -35,7 +35,7 @@ async function connect() {
 		rxChar = await service.getCharacteristic(UART_RX_UUID)
 		txChar = await service.getCharacteristic(UART_TX_UUID)
 
-		await rxChar.startNotifications()
+		await txChar.startNotifications()
 		txChar.addEventListener('characteristicvaluechanged', onNotify)
 
 		status.value = 'connected'

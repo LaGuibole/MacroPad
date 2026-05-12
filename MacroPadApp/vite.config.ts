@@ -1,14 +1,13 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-// import mkcert from 'vite-plugin-mkcert'
+import mkcert from 'vite-plugin-mkcert'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), mkcert()],
   server: {
     host: '0.0.0.0',
-    watch: {
-      usePolling: true,
-    },
+    https: true,
+    watch: { usePolling: true },
   },
 })
