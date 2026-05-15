@@ -93,7 +93,7 @@ void loadConfig(void)
 
 void saveConfig(void)
 {
-    prefs.begin("macropad", true);
+    prefs.begin("macropad", false);
     for (int i = 0; i < NB_BUTTONS; i++)
         prefs.putString(("btn" + String(i)).c_str(), actions[i]);
     prefs.end();
@@ -132,7 +132,7 @@ void handleCommand(String payload)
             sendReply("{\"ok\":false,\"error\":\"invalid btn\"}");
             return ; 
         }
-        actions[btn] = doc["actions"].as<String>();
+        actions[btn] = doc["action"].as<String>();
         sendReply("{\"ok\":true,\"btn\":" + String(btn+1) + "}");
     }
     else if (cmd == "get")
@@ -169,11 +169,11 @@ void handleCommand(String payload)
 // ble callbacks
 class ServerCallBacks : public NimBLEServerCallbacks 
 {
-    void onConnect(NimBLEServer *pSvr) override {
+    void onConnect(NimBLEServer *pSvr) {
         bleConnected = true;
         Serial.println("BLE Client connected");
     }
-    void onDisconnect(NimBLEServer *pSvr) override {
+    void onDisconnect(NimBLEServer *pSvr) {
         bleConnected = false;
         Serial.println("BLE Client disconnected - restarting advertising");
         NimBLEDevice::startAdvertising();
@@ -182,7 +182,7 @@ class ServerCallBacks : public NimBLEServerCallbacks
 
 class RxCallBacks : public NimBLECharacteristicCallbacks 
 {
-    void onWrite(NimBLECharacteristic *pChar) override {
+    void onWrite(NimBLECharacteristic *pChar) {
         String val = pChar->getValue().c_str();
         if (val.length() > 0)
             handleCommand(val);
@@ -209,15 +209,18 @@ void setup(void)
     NimBLEDevice::init("MacroPad");
     NimBLEDevice::setSecurityAuth(false, false, true);
     pServer = NimBLEDevice::createServer();
-    pServer->setCallbacks(new ServerCallbacks());
+    pServer->setCallbacks(new ServerCallBacks());
 
-    NimBLEService *pUart->createCharacteristic(UART_TX_UUID, NIMBLE_PROPERTY::NOTIFY);
+    NimBLEService *pUart = pServer->createService(UART_SERVICE_UUID);
+
+    pTxChar = pUart->createCharacteristic(UART_TX_UUID, NIMBLE_PROPERTY::NOTIFY);
     NimBLECharacteristic *pRxChar = pUart->createCharacteristic(UART_RX_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
-    pRxChar->setCallbacks(new RxCallbacks());
+    pRxChar->setCallbacks(new RxCallBacks());
     pUart->start();
 
     NimBLEAdvertising *adv = NimBLEDevice::getAdvertising();
     adv->addServiceUUID(UART_SERVICE_UUID);
+    adv->setName("MacroPad");
     adv->start();
 
     Serial.println("MacroPad ready, USB HID + BLE UART services has started");

@@ -19,7 +19,7 @@ async function connect() {
 		lastError.value	= null
 
 		const device = await navigator.bluetooth.requestDevice({
-			acceptAllDevices: true,
+			filters: [{ name: 'MacroPad' }],
 			optionalServices: [UART_SERVICE_UUID]
 		})
 
