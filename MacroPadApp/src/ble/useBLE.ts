@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { useMacroPadStore } from '../stores/macropad'
 
 const UART_SERVICE_UUID		= '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
 const UART_TX_UUID 			= '6e400003-b5a3-f393-e0a9-e50e24dcca9e'
@@ -30,11 +31,17 @@ async function connect() {
 		})
 
 		const server = await device.gatt!.connect()
+		try {
+			await (server as any).requestMTU?.(512)
+		} catch (e) {
+			console.log('MTU nego not supported, continuing')
+		}
 		const service = await server.getPrimaryService(UART_SERVICE_UUID)
 		
 		rxChar = await service.getCharacteristic(UART_RX_UUID)
 		txChar = await service.getCharacteristic(UART_TX_UUID)
-
+		console.log('rxChar UUID = ', rxChar?.uuid)
+		console.log('txChar UUID = ', txChar?.uuid)
 		await txChar.startNotifications()
 		txChar.addEventListener('characteristicvaluechanged', onNotify)
 
@@ -50,12 +57,19 @@ function onNotify(event: Event) {
 	const value = (event.target as BluetoothRemoteGATTCharacteristic).value!
 	const text = new TextDecoder().decode(value)
 	console.log('BLE RX ', text)
+	const store = useMacroPadStore()
+	store.handleBleMessage(text)
 }
 
 async function sendCommand(json: object) {
-	if (!rxChar) return
+	console.log('sendCommand called', json)
+	if (!rxChar) {
+		console.error('rxChar null')
+		return
+	}
 	const encoded = new TextEncoder().encode(JSON.stringify(json))
-	await rxChar.writeValueWithoutResponse(encoded)
+	console.log('payload size:', encoded.length, 'bytes')
+	await rxChar.writeValue(encoded)
 }
 
 export function useBLE() {

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useBLE } from '../ble/useBLE'
+import { useMacroPadStore } from '../stores/macropad'
 
 const { status, lastError, connect } = useBLE()
+const store = useMacroPadStore()
 
 const label: Record<string, string> = {
     disconnected: 'Connect',
@@ -9,13 +11,20 @@ const label: Record<string, string> = {
     connected: 'Connected !',
     error: 'Try again',
 }
+
+async function handleConnect() {
+    await connect()
+    if (status.value === 'connected') {
+        await store.syncFromDevice()
+    }
+}
 </script>
 
 <template>
     <div class="ble-status">
         <button 
             :disabled="status === 'connecting'" 
-            @click="connect"
+            @click="handleConnect"
         >
             {{ label[status] }}
         </button>

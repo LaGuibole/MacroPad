@@ -25,7 +25,7 @@ function handleSelect(profileId: number) {
 </template>
 
 <style scoped>
-.profile {
+.profiles {
     display: flex;
     gap: 12px;
     margin-bottom: 24px;

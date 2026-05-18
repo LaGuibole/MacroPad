@@ -45,7 +45,7 @@ function handleKeyDown(event: KeyboardEvent) {
     currentShortCut.value = formatKey(event)
 }
 
-function handleSave() {
+async function handleSave() {
     if (store.selectedButton === null)
         return
     store.setButtonAction(
@@ -53,7 +53,11 @@ function handleSave() {
         store.selectedButton,
         currentShortCut.value
     )
-
+    try {
+        await store.pushButtonToDevice(store.currentProfile, store.selectedButton)
+    } catch (e) {
+        console.error('push failed', e)
+    }
     handleClose()
 }
 
@@ -63,11 +67,11 @@ function handleClose() {
 }
 
 onMounted(() => {
-    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keydown', handleKeyDown, true)
 })
 
 onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeyDown)
+    window.removeEventListener('keydown', handleKeyDown, true)
 })
 </script>
 

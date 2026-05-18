@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { useBLE } from '../ble/useBLE'
 
 import type { Action, 
 			MacroButton,
@@ -86,6 +87,57 @@ export const useMacroPadStore = defineStore('macropad', () => {
 		currentProfile.value = profileId
 	}
 
+async function syncFromDevice() {
+	const ble = useBLE()
+	loading.value = true
+	try {
+		await ble.sendCommand({ cmd: 'getall' })
+	} catch (e) {
+		console.error('syncFromDevice failed', e)
+	} finally {
+		loading.value = false
+	}
+}
+
+async function pushButtonToDevice(profileId: number, buttonId: number) {
+	const ble = useBLE()
+	const action = profiles.value[profileId].buttons[buttonId].action?.value ?? ''
+	syncing.value = true
+	try {
+		await ble.sendCommand({
+			cmd: 'set',
+			profile: profileId + 1,
+			btn: buttonId + 1,
+			action
+		})
+		await ble.sendCommand({ cmd: 'save' })
+	} catch (e) {
+		console.error('pushButtonToDevice failed', e)
+	} finally {
+		syncing.value = false
+	}
+}
+
+function handleBleMessage(json: string) {
+	try {
+		const msg = JSON.parse(json)
+		if (!msg.ok)
+			return
+		if (msg.profiles) 
+		{
+			for (const p of msg.profiles) {
+				const profileIdx = p.profile - 1
+				for (const b of p.buttons) {
+					const btnIdx = b.btn - 1
+					profiles.value[profileIdx].buttons[btnIdx].action = b.action? { value: b.action } : null
+				} 
+			}
+		}
+	} catch (e) {
+		console.error('handleBleMessage parse error', e)
+	}
+}
+
 	return {
 		//state
 		profiles,
@@ -102,6 +154,11 @@ export const useMacroPadStore = defineStore('macropad', () => {
 		selectButton,
 		clearSelectedButton,
 		setButtonAction,
-		setCurrentProfile
+		setCurrentProfile,
+
+		// sync
+		syncFromDevice,
+		pushButtonToDevice,
+		handleBleMessage
 	}
 })

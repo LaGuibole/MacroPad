@@ -13,9 +13,9 @@ import MacroEditorModal from './components/MacroEditorModal.vue';
     <h1>MacroPad Configurator :</h1>
     
     <ProfileSelector />
-
-    <MacroGrid />
-
+    <div class="grid">
+      <MacroGrid />
+    </div>
     <MacroEditorModal />
     
   </main>
@@ -33,5 +33,10 @@ main {
 h1 {
   margin-top: 0;
   margin-bottom: 32px;
+}
+
+.grid {
+  justify-content: center;
+  align-items: center;
 }
 </style>
