@@ -46,6 +46,7 @@ async function connect() {
 		txChar.addEventListener('characteristicvaluechanged', onNotify)
 
 		status.value = 'connected'
+		;(window as any).__sendBLE = sendCommand // debug
 	} catch (e: any) {
 		console.log('ERREUR BLE:', e?.message, e?.name, e)
 		status.value = 'error'
@@ -75,3 +76,4 @@ async function sendCommand(json: object) {
 export function useBLE() {
 	return { status, lastError, connect, sendCommand }
 }
+
