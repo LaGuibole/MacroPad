@@ -121,6 +121,7 @@ async function pushButtonToDevice(profileId: number, buttonId: number) {
 function handleBleMessage(json: string) {
 	try {
 		const msg = JSON.parse(json)
+		console.log('handleBleMessage', msg) // debug
 		if (!msg.ok)
 			return
 		if (msg.profiles) 
